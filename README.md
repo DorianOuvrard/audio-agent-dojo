@@ -2,6 +2,16 @@
 
 Voice AI experimentation playground using Deepgram's Voice Agent API.
 
+## Why This Exists
+
+Testing the capabilities of voice agents for **scripted conversations with conditional behavior**:
+- Can the agent follow a multi-step script?
+- Can it adapt its responses based on answer quality?
+- Can it know when to probe deeper vs. move on?
+- How well does it handle real-time voice interactions?
+
+The default prompt (behavioral interview) is a stress test for these capabilities.
+
 ## Quick Start
 
 ### 1. Get a Deepgram API Key
