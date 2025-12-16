@@ -1,14 +1,28 @@
-# audio-agent-dojo
+# Audio Agent Dojo
 
-Voice AI experimentation playground using Deepgram Voice Agent API.
+Voice AI experimentation playground using Deepgram's Voice Agent API.
 
-## Run
+## Quick Start
 
-Open `index.html` in a browser.
+```bash
+npm install
+npm run dev
+```
+
+Open http://localhost:5173 and click "Start Conversation" to begin.
 
 ## Features
 
-- Real-time voice conversation
-- Speech-to-text (Deepgram Nova-3)
-- LLM responses (GPT-4o-mini)
-- Text-to-speech (Deepgram Aura)
+- Real-time voice conversation with AI
+- Configurable system prompts (Behavior + Script guides)
+- Real-time audio visualization
+- Speech-to-Text: Deepgram Nova-3
+- LLM: OpenAI GPT-5 (via Deepgram)
+- Text-to-Speech: Deepgram Aura voices
+
+## Tech Stack
+
+- Vite + React 19
+- TypeScript
+- Tailwind CSS
+- Deepgram Voice Agent API

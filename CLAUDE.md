@@ -4,10 +4,26 @@ Voice AI experimentation playground.
 
 ## Stack
 
-- **Pure HTML/JS** - No backend required
+- **Vite + React 19** - Fast dev server and build
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Styling
 - **STT/TTS**: Deepgram Voice Agent API (Nova-3 / Aura)
-- **LLM**: OpenAI GPT-4o-mini (via Deepgram)
+- **LLM**: OpenAI GPT-5 (via Deepgram)
 
 ## Run
 
-Open `index.html` in a browser.
+```bash
+npm install
+npm run dev
+```
+
+## Project Structure
+
+```
+src/
+├── hooks/           # Custom hooks (useVoiceAgent)
+├── lib/             # Utilities (cn helper)
+├── App.tsx          # Main application
+├── index.css        # Tailwind styles
+└── main.tsx         # Entry point
+```
