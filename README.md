@@ -1,22 +1,15 @@
-# moshi-dojo
+# audio-agent-dojo
 
-Audio experimentation playground with [Moshi](https://github.com/kyutai-labs/moshi) by Kyutai.
+Voice AI experimentation playground for STT, TTS, and orchestration workflows.
 
 ## Setup
 
 ```bash
-# Install dependencies
 uv sync
 ```
 
-## Quick Start
+## Run
 
 ```bash
-# Run
-uv run main.py
+uv run streamlit run app.py
 ```
-
-## Links
-
-- [Moshi GitHub](https://github.com/kyutai-labs/moshi)
-- [Kyutai](https://kyutai.org/)

@@ -1,29 +1,19 @@
-# moshi-dojo
+# audio-agent-dojo
 
-Audio experimentation playground with Moshi by Kyutai.
+Voice AI experimentation playground.
 
 ## Stack
 
 - **Package manager**: uv
-- **Python**: 3.13+
-- **Audio AI**: Moshi (moshi_mlx for macOS)
+- **Python**: 3.12+
+- **UI**: Streamlit
 
 ## Commands
 
 ```bash
-# Install dependencies
+# Install
 uv sync
 
 # Run
-uv run main.py
-
-# Add a dependency
-uv add <package>
+uv run streamlit run app.py
 ```
-
-## Moshi
-
-Moshi is a full-duplex real-time speech-to-speech AI model from Kyutai.
-- Uses Mimi codec (80ms latency)
-- MLX version for Apple Silicon: `moshi_mlx`
-- Supports 4-bit and 8-bit quantization
