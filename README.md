@@ -1,15 +1,14 @@
 # audio-agent-dojo
 
-Voice AI experimentation playground for STT, TTS, and orchestration workflows.
-
-## Setup
-
-```bash
-uv sync
-```
+Voice AI experimentation playground using Deepgram Voice Agent API.
 
 ## Run
 
-```bash
-uv run streamlit run app.py
-```
+Open `index.html` in a browser.
+
+## Features
+
+- Real-time voice conversation
+- Speech-to-text (Deepgram Nova-3)
+- LLM responses (GPT-4o-mini)
+- Text-to-speech (Deepgram Aura)

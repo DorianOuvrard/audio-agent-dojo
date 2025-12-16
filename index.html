@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Agent Dojo</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        h1 { text-align: center; }
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+        .status.disconnected { background: #4a1a1a; }
+        .status.connecting { background: #4a4a1a; }
+        .status.connected { background: #1a4a1a; }
+        .status.speaking { background: #1a1a4a; }
+        button {
+            width: 100%;
+            padding: 20px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        #startBtn { background: #4CAF50; color: white; }
+        #startBtn:hover { background: #45a049; }
+        #startBtn:disabled { background: #666; cursor: not-allowed; }
+        #stopBtn { background: #f44336; color: white; }
+        #stopBtn:hover { background: #da190b; }
+        #stopBtn:disabled { background: #666; cursor: not-allowed; }
+        #log {
+            background: #0d0d1a;
+            border-radius: 8px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .log-entry { margin: 5px 0; }
+        .log-entry.user { color: #4CAF50; }
+        .log-entry.assistant { color: #2196F3; }
+        .log-entry.system { color: #888; }
+        .log-entry.error { color: #f44336; }
+    </style>
+</head>
+<body>
+    <h1>Audio Agent Dojo</h1>
+
+    <div id="status" class="status disconnected">Disconnected</div>
+
+    <button id="startBtn">Start Conversation</button>
+    <button id="stopBtn" disabled>Stop</button>
+
+    <div id="log"></div>
+
+    <script>
+        const DEEPGRAM_API_KEY = 'b3e5ecf7ab87ac8723722ae14a0d7f558f479ccb';
+        const VOICE_AGENT_URL = 'wss://agent.deepgram.com/v1/agent/converse';
+
+        let ws = null;
+        let mediaStream = null;
+        let audioContext = null;
+        let processor = null;
+        let source = null;
+        let playbackContext = null;
+        let nextPlayTime = 0;
+
+        const statusEl = document.getElementById('status');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const logEl = document.getElementById('log');
+
+        function log(msg, type = 'system') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(msg);
+        }
+
+        function setStatus(status, text) {
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = text;
+        }
+
+        async function start() {
+            try {
+                log('Requesting microphone access...');
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: 24000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                    }
+                });
+                log('Microphone access granted');
+
+                setStatus('connecting', 'Connecting to Deepgram...');
+                log('Connecting to Deepgram Voice Agent...');
+
+                ws = new WebSocket(VOICE_AGENT_URL, ['token', DEEPGRAM_API_KEY]);
+
+                ws.onopen = () => {
+                    log('WebSocket connected');
+
+                    const settings = {
+                        type: 'Settings',
+                        audio: {
+                            input: { encoding: 'linear16', sample_rate: 48000 },
+                            output: { encoding: 'linear16', sample_rate: 48000, container: 'none' },
+                        },
+                        agent: {
+                            listen: { provider: { type: 'deepgram', model: 'nova-3' } },
+                            think: {
+                                provider: { type: 'open_ai', model: 'gpt-4o-mini' },
+                                prompt: 'You are a helpful voice assistant. Be brief and conversational.',
+                            },
+                            speak: { provider: { type: 'deepgram', model: 'aura-asteria-en' } },
+                        },
+                    };
+
+                    ws.send(JSON.stringify(settings));
+                    log('Settings sent');
+                    startAudioCapture();
+                };
+
+                ws.onmessage = async (event) => {
+                    if (event.data instanceof Blob) {
+                        // Audio response
+                        playAudio(event.data);
+                    } else {
+                        const data = JSON.parse(event.data);
+
+                        if (data.type === 'Welcome') {
+                            setStatus('connected', 'Connected - Speak now!');
+                            log('Ready! Start speaking...');
+                        } else if (data.type === 'ConversationText') {
+                            if (data.role === 'user') {
+                                log(`You: ${data.content}`, 'user');
+                            } else if (data.role === 'assistant') {
+                                log(`Assistant: ${data.content}`, 'assistant');
+                            }
+                        } else if (data.type === 'UserStartedSpeaking') {
+                            setStatus('speaking', 'Listening...');
+                        } else if (data.type === 'AgentStartedSpeaking') {
+                            setStatus('speaking', 'Agent speaking...');
+                        } else if (data.type === 'AgentAudioDone') {
+                            setStatus('connected', 'Connected - Speak now!');
+                        } else if (data.type === 'Error') {
+                            log(`Error: ${JSON.stringify(data)}`, 'error');
+                        }
+                    }
+                };
+
+                ws.onerror = (err) => {
+                    log(`WebSocket error: ${err}`, 'error');
+                };
+
+                ws.onclose = (event) => {
+                    log(`Disconnected (${event.code})`);
+                    setStatus('disconnected', 'Disconnected');
+                    cleanup();
+                };
+
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+
+            } catch (err) {
+                log(`Error: ${err.message}`, 'error');
+                setStatus('disconnected', 'Error');
+            }
+        }
+
+        function startAudioCapture() {
+            // Capture at native 48kHz, send directly to Deepgram
+            audioContext = new AudioContext({ sampleRate: 48000 });
+            source = audioContext.createMediaStreamSource(mediaStream);
+            processor = audioContext.createScriptProcessor(2048, 1, 1);
+
+            processor.onaudioprocess = (e) => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    const pcm16 = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                        pcm16[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+                    }
+                    ws.send(pcm16.buffer);
+                }
+            };
+
+            source.connect(processor);
+            processor.connect(audioContext.destination);
+            log('Audio capture @ 48kHz');
+        }
+
+        function createWavHeader(dataLength) {
+            const header = new ArrayBuffer(44);
+            const view = new DataView(header);
+            const sampleRate = 48000;
+            const numChannels = 1;
+            const bitsPerSample = 16;
+            const byteRate = sampleRate * numChannels * bitsPerSample / 8;
+            const blockAlign = numChannels * bitsPerSample / 8;
+
+            // "RIFF"
+            view.setUint32(0, 0x52494646, false);
+            // File size
+            view.setUint32(4, 36 + dataLength, true);
+            // "WAVE"
+            view.setUint32(8, 0x57415645, false);
+            // "fmt "
+            view.setUint32(12, 0x666d7420, false);
+            // Chunk size
+            view.setUint32(16, 16, true);
+            // Audio format (PCM)
+            view.setUint16(20, 1, true);
+            // Channels
+            view.setUint16(22, numChannels, true);
+            // Sample rate
+            view.setUint32(24, sampleRate, true);
+            // Byte rate
+            view.setUint32(28, byteRate, true);
+            // Block align
+            view.setUint16(32, blockAlign, true);
+            // Bits per sample
+            view.setUint16(34, bitsPerSample, true);
+            // "data"
+            view.setUint32(36, 0x64617461, false);
+            // Data size
+            view.setUint32(40, dataLength, true);
+
+            return header;
+        }
+
+        async function playAudio(blob) {
+            const pcmData = await blob.arrayBuffer();
+
+            if (!playbackContext) {
+                playbackContext = new AudioContext();
+                nextPlayTime = playbackContext.currentTime;
+            }
+
+            // Add WAV header to raw PCM
+            const wavHeader = createWavHeader(pcmData.byteLength);
+            const wavBuffer = new Uint8Array(wavHeader.byteLength + pcmData.byteLength);
+            wavBuffer.set(new Uint8Array(wavHeader), 0);
+            wavBuffer.set(new Uint8Array(pcmData), wavHeader.byteLength);
+
+            try {
+                const audioBuffer = await playbackContext.decodeAudioData(wavBuffer.buffer);
+                const bufferSource = playbackContext.createBufferSource();
+                bufferSource.buffer = audioBuffer;
+                bufferSource.connect(playbackContext.destination);
+
+                // Schedule seamlessly after previous chunk
+                const startTime = Math.max(nextPlayTime, playbackContext.currentTime);
+                bufferSource.start(startTime);
+                nextPlayTime = startTime + audioBuffer.duration;
+            } catch (err) {
+                log(`Playback error: ${err.message}`, 'error');
+            }
+        }
+
+        function stop() {
+            cleanup();
+            setStatus('disconnected', 'Disconnected');
+            log('Stopped');
+        }
+
+        function cleanup() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            if (processor) {
+                processor.disconnect();
+                processor = null;
+            }
+            if (source) {
+                source.disconnect();
+                source = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            if (playbackContext) {
+                playbackContext.close();
+                playbackContext = null;
+            }
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(t => t.stop());
+                mediaStream = null;
+            }
+            nextPlayTime = 0;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        }
+
+        startBtn.onclick = start;
+        stopBtn.onclick = stop;
+    </script>
+</body>
+</html>
