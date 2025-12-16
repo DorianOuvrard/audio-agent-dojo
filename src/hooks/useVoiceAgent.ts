@@ -111,7 +111,7 @@ CLOSING:
 After all 3 questions, say: "Thank you, that concludes our interview. Do you have any questions for me?"`,
 }
 
-const DEEPGRAM_API_KEY = 'b3e5ecf7ab87ac8723722ae14a0d7f558f479ccb'
+const DEEPGRAM_API_KEY = import.meta.env.VITE_DEEPGRAM_API_KEY || ''
 const VOICE_AGENT_URL = 'wss://agent.deepgram.com/v1/agent/converse'
 
 function createWavHeader(dataLength: number): ArrayBuffer {
